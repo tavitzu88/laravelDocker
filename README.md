@@ -47,7 +47,7 @@ The project consists of:
 # 1. Clone this repository
 git clone <this-repo> {{project_name}} && cd {{project_name}}
 
-# 2. Configure environment
+# 2. Configure environment (!!! IMPORTANT !!! PROJECT NAME MUST BE LOWERCASE AND NO SPACES!!!)
 cp .env.sample .env
 nano .env  # Set PROJECT_NAME, USER_ID, GROUP_ID, PHP_VERSION
 
@@ -115,7 +115,7 @@ project-root/
    cd {{project_name}}
    ```
 
-2. **Copy and Configure `.env`**
+2. **Copy and Configure `.env`** (!!! IMPORTANT !!! PROJECT NAME MUST BE LOWERCASE AND NO SPACES!!!)
    ```bash
    cp .env.sample .env
    nano .env
