@@ -168,8 +168,9 @@ project-root/
 3. **Configure Laravel `.env` File** (in `src/.env`)
    ```bash
    cd src
-   cp .env.example .env
+   replace .env with .envLaravelSample
    nano .env
+   replace mylaravel with your project name
    ```
 
    **Database Configuration:**
@@ -272,9 +273,10 @@ project-root/
 
 4. **Configure Laravel `.env`**
    ```bash
-   cd src
-   cp .env.example .env
+   cd src   
+   replace .env with .envLaravelSample
    nano .env
+   replace mylaravel with your project name
    # Configure database, Redis, mail (same as Part 3A step 3)
    ```
 
