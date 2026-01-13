@@ -6,13 +6,13 @@ if [ ! -d "$REAL_SRC" ]; then
   mkdir -p "$REAL_SRC"
 fi
 if [ "$1" == "--all" ]; then
-  docker cp "$(bin/docker-compose ps -q mylaravel-php|awk '{print $1}')":/var/www/src/./ "$REAL_SRC/"
+  docker cp "$(bin/docker-compose ps -q {{project_name}}-php|awk '{print $1}')":/var/www/src/./ "$REAL_SRC/"
   echo "Completed copying all files from container to host"
 else
   if [ -f "$1" ] ; then
-    docker cp "$(bin/docker-compose ps -q mylaravel-php|awk '{print $1}')":/var/www/src/"$1" "$REAL_SRC/$1"
+    docker cp "$(bin/docker-compose ps -q {{project_name}}-php|awk '{print $1}')":/var/www/src/"$1" "$REAL_SRC/$1"
   else
-    docker cp "$(bin/docker-compose ps -q mylaravel-php|awk '{print $1}')":/var/www/src/"$1" "$REAL_SRC/$(dirname "$1")"
+    docker cp "$(bin/docker-compose ps -q {{project_name}}-php|awk '{print $1}')":/var/www/src/"$1" "$REAL_SRC/$(dirname "$1")"
   fi
   echo "Completed copying $1 from container to host"
 fi

@@ -22,7 +22,7 @@ blackfire_enable() {
     if [[ $S == 1 ]]; then
         bin/root sed -i -e 's/^;extension=blackfire.so/extension=blackfire.so/g' /usr/local/etc/php/conf.d/blackfire.ini
         sleep 1
-        bin/restart mylaravel-php
+        bin/restart {{project_name}}-php
         echo "Blackfire has been enabled."
     else
         echo "Blackfire is already enabled."
@@ -33,7 +33,7 @@ blackfire_disable() {
     if [[ $S == 0 ]]; then
         bin/root sed -i -e 's/^extension=blackfire.so/;extension=blackfire.so/g' /usr/local/etc/php/conf.d/blackfire.ini
         sleep 1
-        bin/restart mylaravel-php
+        bin/restart {{project_name}}-php
         echo "Blackfire has been disabled."
     else
         echo "Blackfire is already disabled."

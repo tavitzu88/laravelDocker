@@ -37,14 +37,14 @@ local_debug_enable() {
 
   echo "XDEBUG_CONFIG=idekey=$platform" >> ./env/phpfpm.env
   sleep 1
-  bin/restart mylaravel-php
+  bin/restart {{project_name}}-php
   echo "Cli debug enabled"
 }
 
 local_debug_disable() {
   sed -i '' '/XDEBUG_CONFIG=idekey/d' ./env/phpfpm.env
   sleep 1
-  bin/restart mylaravel-php
+  bin/restart {{project_name}}-php
   echo "Cli debug disabled"
 }
 

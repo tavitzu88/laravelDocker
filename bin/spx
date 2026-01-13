@@ -22,7 +22,7 @@ spx_enable() {
     if [[ $S == 1 ]]; then
         bin/root sed -i -e 's/^zlib.output_compression = 1/zlib.output_compression = 0/g' /usr/local/etc/php/php.ini
         sleep 1
-        bin/restart mylaravel-php
+        bin/restart {{project_name}}-php
         echo "Output compression is now disabled, so you can start debugging with SPX."
     else
         echo "Output compression is already disabled, so you can start debugging with SPX."
@@ -33,7 +33,7 @@ spx_disable() {
     if [[ $S == 0 ]]; then
         bin/root sed -i -e 's/^zlib.output_compression = 0/zlib.output_compression = 1/g' /usr/local/etc/php/php.ini
         sleep 1
-        bin/restart mylaravel-php
+        bin/restart {{project_name}}-php
         echo "Output compression is now enabled, so you can no longer debug with SPX."
     else
         echo "Output compression is already enabled, so you can no longer debug with SPX."

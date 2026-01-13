@@ -3,15 +3,15 @@
 
 REAL_SRC=$(cd -P "src" && pwd)
 if [ "$1" == "--all" ]; then
-  docker cp "$REAL_SRC/./" "$(bin/docker-compose ps -q mylaravel-php|awk '{print $1}')":/var/www/src/
+  docker cp "$REAL_SRC/./" "$(bin/docker-compose ps -q {{project_name}}-php|awk '{print $1}')":/var/www/src/
   echo "Completed copying all files from host to container"
   bin/fixowns
   bin/fixperms
 else
   if [ -f "$REAL_SRC/$1" ]; then
-    docker cp "$REAL_SRC/${1}" "$(bin/docker-compose ps -q mylaravel-php|awk '{print $1}')":/var/www/src/"$1"
+    docker cp "$REAL_SRC/${1}" "$(bin/docker-compose ps -q {{project_name}}-php|awk '{print $1}')":/var/www/src/"$1"
   else
-    docker cp "$REAL_SRC/${1}" "$(bin/docker-compose ps -q mylaravel-php|awk '{print $1}')":/var/www/src/"$(dirname "$1")"
+    docker cp "$REAL_SRC/${1}" "$(bin/docker-compose ps -q {{project_name}}-php|awk '{print $1}')":/var/www/src/"$(dirname "$1")"
   fi
   echo "Completed copying $1 from host to container"
   bin/fixowns "$1"

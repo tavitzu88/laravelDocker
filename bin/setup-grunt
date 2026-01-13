@@ -54,7 +54,7 @@ sed -e 's/Gruntfile.js.sample/Gruntfile.js/' compose.dev.yaml > compose.dev.yaml
  && mv compose.dev.yaml.updated compose.dev.yaml
 sed -e 's/package.json.sample/package.json/' compose.dev.yaml > compose.dev.yaml.updated \
  && mv compose.dev.yaml.updated compose.dev.yaml
-bin/restart mylaravel-nginx mylaravel-php
+bin/restart {{project_name}}-nginx {{project_name}}-php
 
 bin/npm install ajv@^5.0.0 --save
 bin/npm install

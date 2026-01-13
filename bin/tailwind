@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-bin/cli npm --prefix app/design/frontend/mylaravel/base/web/tailwind "$@"
+bin/cli npm --prefix app/design/frontend/{{project_name}}/base/web/tailwind "$@"

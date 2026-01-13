@@ -32,15 +32,15 @@ generate_logs_file_path() {
 get_all_logs_file_path() {
   local logs_location="$1"
 
-  bin/docker-compose exec mylaravel-php ls -p "$logs_location" | grep -v '/$' | sed "s|^|$logs_location|"
+  bin/docker-compose exec {{project_name}}-php ls -p "$logs_location" | grep -v '/$' | sed "s|^|$logs_location|"
 }
 
 if [[ $1 == "-h" || $1 == "--help" ]]; then
   display_help
 elif [[ -z $1 ]]; then
   mapfile -t all_logs_file_path < <(get_all_logs_file_path "$CONTAINER_LOG_PATH")
-  bin/docker-compose exec mylaravel-php tail -f "${all_logs_file_path[@]}"
+  bin/docker-compose exec {{project_name}}-php tail -f "${all_logs_file_path[@]}"
 else
   mapfile -t logs_file_path < <(generate_logs_file_path "$CONTAINER_LOG_PATH" "$@")
-  bin/docker-compose exec mylaravel-php tail -f "${logs_file_path[@]}"
+  bin/docker-compose exec {{project_name}}-php tail -f "${logs_file_path[@]}"
 fi
