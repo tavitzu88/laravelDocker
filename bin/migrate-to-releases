@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+
+set -e  # Exit on error
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Configuration
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RELEASES_DIR="$PROJECT_ROOT/releases"
+SHARED_DIR="$PROJECT_ROOT/shared"
+CURRENT_LINK="$PROJECT_ROOT/current"
+SRC_DIR="$PROJECT_ROOT/src"
+SRC_LINK="$PROJECT_ROOT/src"
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+FIRST_RELEASE="$RELEASES_DIR/release-$TIMESTAMP"
+BACKUP_FILE="$PROJECT_ROOT/backup-pre-migration-$TIMESTAMP.tar.gz"
+
+# Helper functions
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_step() {
+    echo -e "${BLUE}[STEP]${NC} $1"
+}
+
+# Confirmation prompt
+confirm() {
+    read -p "$1 (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_error "Migration cancelled by user"
+        exit 1
+    fi
+}
+
+# Check prerequisites
+check_prerequisites() {
+    log_step "Checking prerequisites..."
+
+    # Check if src directory exists
+    if [ ! -d "$SRC_DIR" ]; then
+        log_error "src/ directory not found at $SRC_DIR"
+        exit 1
+    fi
+
+    # Check if src is a symlink (already migrated?)
+    if [ -L "$SRC_DIR" ]; then
+        log_error "src/ is already a symlink! Migration may have already been done."
+        exit 1
+    fi
+
+    # Check if src has .git directory
+    if [ ! -d "$SRC_DIR/.git" ]; then
+        log_warn "src/.git directory not found. Are you sure this is a Git repository?"
+        confirm "Continue anyway?"
+    fi
+
+    # Check if releases directory already exists
+    if [ -d "$RELEASES_DIR" ]; then
+        log_warn "releases/ directory already exists!"
+        confirm "Continue and use existing releases/?"
+    fi
+
+    log_info "Prerequisites check passed"
+}
+
+# Create backup
+create_backup() {
+    log_step "Creating backup of current src/ directory..."
+
+    cd "$PROJECT_ROOT"
+
+    log_info "Backup file: $BACKUP_FILE"
+    tar -czf "$BACKUP_FILE" src/
+
+    BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+    log_info "Backup created successfully (size: $BACKUP_SIZE)"
+}
+
+# Create directory structure
+setup_directories() {
+    log_step "Creating directory structure..."
+
+    mkdir -p "$RELEASES_DIR"
+    mkdir -p "$SHARED_DIR/var"
+    mkdir -p "$SHARED_DIR/pub/media"
+    mkdir -p "$SHARED_DIR/app/etc"
+
+    log_info "Directory structure created"
+}
+
+# Move src to first release
+move_src_to_release() {
+    log_step "Moving src/ to $FIRST_RELEASE..."
+
+    mv "$SRC_DIR" "$FIRST_RELEASE"
+
+    log_info "src/ moved to releases/release-$TIMESTAMP"
+}
+
+# Move shared files
+move_shared_files() {
+    log_step "Moving shared files to shared/ directory..."
+
+    # Move var/ to shared
+    if [ -d "$FIRST_RELEASE/var" ]; then
+        log_info "Moving var/ to shared/var..."
+
+        # If shared/var is empty, move the entire directory
+        if [ -z "$(ls -A "$SHARED_DIR/var" 2>/dev/null)" ]; then
+            rm -rf "$SHARED_DIR/var"
+            mv "$FIRST_RELEASE/var" "$SHARED_DIR/var"
+        else
+            log_warn "shared/var is not empty, merging..."
+            cp -r "$FIRST_RELEASE/var/"* "$SHARED_DIR/var/"
+            rm -rf "$FIRST_RELEASE/var"
+        fi
+    fi
+
+    # Move pub/media to shared
+    if [ -d "$FIRST_RELEASE/pub/media" ]; then
+        log_info "Moving pub/media/ to shared/pub/media..."
+
+        if [ -z "$(ls -A "$SHARED_DIR/pub/media" 2>/dev/null)" ]; then
+            rm -rf "$SHARED_DIR/pub/media"
+            mv "$FIRST_RELEASE/pub/media" "$SHARED_DIR/pub/media"
+        else
+            log_warn "shared/pub/media is not empty, merging..."
+            cp -r "$FIRST_RELEASE/pub/media/"* "$SHARED_DIR/pub/media/"
+            rm -rf "$FIRST_RELEASE/pub/media"
+        fi
+    fi
+
+    # Move app/etc/env.php to shared
+    if [ -f "$FIRST_RELEASE/app/etc/env.php" ]; then
+        log_info "Moving app/etc/env.php to shared/app/etc/env.php..."
+        mv "$FIRST_RELEASE/app/etc/env.php" "$SHARED_DIR/app/etc/env.php"
+    fi
+
+    log_info "Shared files moved successfully"
+}
+
+# Create symlinks in release
+create_symlinks_in_release() {
+    log_step "Creating symlinks in release..."
+
+    cd "$FIRST_RELEASE"
+
+    # Symlink var/
+    log_info "Linking var/ -> ../../shared/var"
+    ln -sfn ../../shared/var var
+
+    # Symlink pub/media/
+    log_info "Linking pub/media/ -> ../../../shared/pub/media"
+    mkdir -p pub  # Ensure pub/ directory exists
+    ln -sfn ../../../shared/pub/media pub/media
+
+    # Symlink app/etc/env.php
+    log_info "Linking app/etc/env.php -> ../../../shared/app/etc/env.php"
+    ln -sfn ../../../../shared/app/etc/env.php app/etc/env.php
+
+    log_info "Symlinks created successfully"
+}
+
+# Create current and src symlinks
+create_main_symlinks() {
+    log_step "Creating main symlinks..."
+
+    cd "$PROJECT_ROOT"
+
+    # Create current -> releases/release-TIMESTAMP (RELATIVE path)
+    RELEASE_NAME=$(basename "$FIRST_RELEASE")
+    log_info "Creating current -> releases/$RELEASE_NAME"
+    ln -sfn "releases/$RELEASE_NAME" current
+
+    # Create src -> current (for compatibility)
+    log_info "Creating src -> current"
+    ln -sfn current src
+
+    log_info "Main symlinks created successfully"
+}
+
+# Verify migration
+verify_migration() {
+    log_step "Verifying migration..."
+
+    # Check if symlinks exist
+    if [ ! -L "$CURRENT_LINK" ]; then
+        log_error "current symlink not created!"
+        return 1
+    fi
+
+    if [ ! -L "$SRC_LINK" ]; then
+        log_error "src symlink not created!"
+        return 1
+    fi
+
+    # Check if Git repository is accessible
+    if [ ! -d "$SRC_LINK/.git" ]; then
+        log_error "Git repository not accessible through src symlink!"
+        return 1
+    fi
+
+    # Check if shared files are accessible
+    if [ ! -f "$SRC_LINK/app/etc/env.php" ]; then
+        log_error "env.php not accessible through symlink!"
+        return 1
+    fi
+
+    log_info "Migration verification passed!"
+
+    # Show final structure
+    echo ""
+    log_info "Final structure:"
+    echo ""
+    ls -la "$PROJECT_ROOT" | grep -E "current|src|releases|shared"
+    echo ""
+
+    log_info "Git status:"
+    cd "$SRC_LINK" && git status --short
+    echo ""
+
+    log_info "Current release:"
+    echo "  $(readlink -f "$CURRENT_LINK")"
+    echo ""
+
+    log_info "Git commit:"
+    echo "  $(cd "$SRC_LINK" && git log -1 --oneline)"
+}
+
+# Print summary
+print_summary() {
+    echo ""
+    echo "=========================================="
+    log_info "Migration completed successfully!"
+    echo "=========================================="
+    echo ""
+    log_info "Backup saved to: $BACKUP_FILE"
+    log_info "First release: $FIRST_RELEASE"
+    log_info "Current symlink: $CURRENT_LINK -> $(readlink "$CURRENT_LINK")"
+    log_info "Src symlink: $SRC_LINK -> $(readlink "$SRC_LINK")"
+    echo ""
+    log_info "Next steps:"
+    echo "  1. Test your application: bin/magento cache:status"
+    echo "  2. Check Git: cd src && git status"
+    echo "  3. Run deployment: bin/deploy-releases"
+    echo ""
+    log_warn "If something goes wrong, restore from backup:"
+    echo "  rm -rf src current releases shared"
+    echo "  tar -xzf $BACKUP_FILE"
+    echo ""
+}
+
+# Main migration flow
+main() {
+    echo "=========================================="
+    log_info "Migration to releases structure"
+    echo "=========================================="
+    echo ""
+    log_info "This script will migrate your current src/ directory"
+    log_info "to a releases-based deployment structure."
+    echo ""
+    log_warn "This is a DESTRUCTIVE operation!"
+    log_warn "A backup will be created before migration."
+    echo ""
+
+    confirm "Do you want to continue?"
+
+    echo ""
+
+    # Run migration steps
+    check_prerequisites
+    create_backup
+    setup_directories
+    move_src_to_release
+    move_shared_files
+    create_symlinks_in_release
+    create_main_symlinks
+    verify_migration
+    print_summary
+}
+
+# Run main function
+main

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+echo "Fixing filesystem ownerships..."
+ENV_FILE=".env"
+if [ -f "$ENV_FILE" ]; then
+    USER_ID=$(grep -E '^USER_ID=' "$ENV_FILE" | cut -d '=' -f2)
+    GROUP_ID=$(grep -E '^GROUP_ID=' "$ENV_FILE" | cut -d '=' -f2)
+else
+    echo "Fișierul .env nu a fost găsit!"
+    exit 1
+fi
+
+if [ -z "$USER_ID" ]; then
+    echo "Variabila USER_ID nu a fost găsită în fișierul .env sau este goală!"
+    exit 1
+fi
+echo "USER_ID a fost găsit cu succes: $USER_ID"
+if [ -z "$GROUP_ID" ]; then
+    echo "Variabila GROUP_ID nu a fost găsită în fișierul .env sau este goală!"
+    exit 1
+fi
+echo "GROUP_ID a fost găsit cu succes: $GROUP_ID"
+if [ -z "$1" ]; then
+  bin/rootnotty chown -R $USER_ID:$GROUP_ID /var/www/
+else
+  bin/rootnotty chown -R $USER_ID:$GROUP_ID /var/www/src/"$1"
+fi
+
+echo "Filesystem ownerships fixed."

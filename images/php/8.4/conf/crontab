@@ -1,0 +1,6 @@
+SHELL=/bin/bash
+
+#MAGENTO
+#* * * * * www-data /usr/local/bin/php /var/www/src/bin/magento cron:run >> /var/www/src/var/log/magento.cron.log 2>&1
+#0 0 * * * www-data tail -n 1000 /var/www/src/var/log/magento.cron.log > /var/www/src/var/log/magento.cron.log.tmp && mv /var/www/src/var/log/magento.cron.log.tmp /var/www/src/var/log/magento.cron.log
+#0 0 * * * www-data /usr/sbin/logrotate /etc/logrotate.d/magento --state /tmp/logrotate-magento.state

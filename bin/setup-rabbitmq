@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -o errexit
+
+source .env
+
+if ! docker ps --format '{{.Names}}' | grep -q "^$RABBITMQ_HOST$"; then
+    echo "Error: Container '$RABBITMQ_HOST' missing."
+    exit 1
+fi
+
+echo "--- Configur RabbitMQ for Vhost: $RABBITMQ_DEFAULT_VHOST ---"
+
+echo "1. Creare Vhost: $RABBITMQ_DEFAULT_VHOST"
+docker exec $RABBITMQ_HOST rabbitmqctl add_vhost $RABBITMQ_DEFAULT_VHOST
+if [ $? -ne 0 ]; then
+    echo "Info: Vhost exista or other error."
+fi
+
+echo "2. Create/Set Credentials: $RABBITMQ_DEFAULT_USER"
+docker exec $RABBITMQ_HOST rabbitmqctl add_user $RABBITMQ_DEFAULT_USER $RABBITMQ_DEFAULT_PASS
+
+echo "3. Set Permisions for user on Vhost"
+docker exec $RABBITMQ_HOST rabbitmqctl set_permissions -p $RABBITMQ_DEFAULT_VHOST $RABBITMQ_DEFAULT_USER ".*" ".*" ".*"
+
+echo "4. Set tag 'management' for virtualization UI"
+docker exec $RABBITMQ_HOST rabbitmqctl set_user_tags $RABBITMQ_DEFAULT_USER management
+
+echo "Configuration succes! 🎉"

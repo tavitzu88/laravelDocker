@@ -1,0 +1,23 @@
+#!/bin/bash
+ENV_FILE=".env"
+TARGET_FOLDER="./"
+SEARCH_STRING="{{project_name}}"
+
+# Read the PROJECT_NAME variable from the .env file
+if [ -f "$ENV_FILE" ]; then
+    PROJECT_NAME=$(grep -E '^PROJECT_NAME=' "$ENV_FILE" | cut -d '=' -f2)
+else
+    echo "The .env file was not found!"
+    exit 1
+fi
+
+# Check if PROJECT_NAME has a value
+if [ -z "$PROJECT_NAME" ]; then
+    echo "The PROJECT_NAME variable was not found in the .env file or is empty!"
+    exit 1
+fi
+
+# Search and replace SEARCH_STRING with the value of PROJECT_NAME in all files in the target folder
+find "$TARGET_FOLDER" -type f -not -path "./bin/setup-docker" -exec sed -i "s/$SEARCH_STRING/$PROJECT_NAME/g" {} +
+
+echo "Replacement was successful! $PROJECT_NAME"

@@ -1,0 +1,115 @@
+services:
+  {{project_name}}-nginx:
+    container_name: {{project_name}}-nginx
+    restart: unless-stopped
+    image: nginx:1.27
+    volumes:
+      - ./:/var/www
+      - ./images/nginx/default.conf:/etc/nginx/conf.d/custom.conf
+      #- ./images/nginx/.htpasswd:/etc/nginx/.htpasswd
+    ports:
+      - "80"
+    depends_on:
+      - {{project_name}}-php
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - nginx-proxy
+      - {{project_name}}-network
+    environment:
+      - VIRTUAL_HOST=${DOMAIN_HOSTS}
+      - SELF_SIGNED_HOST=${DOMAIN_HOSTS}
+      - VIRTUAL_PORT=80
+      - LETSENCRYPT_HOST=${DOMAIN_HOSTS}
+      - LETSENCRYPT_EMAIL=${DOMAIN_EMAIL}
+
+  {{project_name}}-php:
+    container_name: {{project_name}}-php
+    restart: unless-stopped
+    build:
+      dockerfile: Dockerfile
+      context: images/php/${PHP_VERSION}
+      args:
+        - USER_ID=${USER_ID}
+        - GROUP_ID=${GROUP_ID}
+    volumes:
+      - ./:/var/www
+      - ./images/php/${PHP_VERSION}/conf/php.ini:/usr/local/etc/php/conf.d/php.ini
+      - ./images/php/${PHP_VERSION}/conf/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+    tmpfs:
+      - /dev/shm
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - mail-catcher-network
+      - meilisearch-network
+      - {{project_name}}-network
+
+  {{project_name}}-redis:
+    container_name: {{project_name}}-redis
+    #image: redis:7.2-alpine #for older versions
+    image: valkey/valkey:8.1-alpine
+    restart: unless-stopped
+    ports:
+      - "6379"
+    networks:
+      - {{project_name}}-network
+    volumes:
+        - redisdata:/data
+
+  {{project_name}}-db:
+    container_name: {{project_name}}-db
+    image: mysql:8.0
+    restart: unless-stopped
+    command:
+      --max_allowed_packet=64M
+      --innodb_buffer_pool_size=2G
+      --innodb_log_buffer_size=256M
+      --innodb_log_file_size=512M
+      --innodb_write_io_threads=8
+      --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+    ports:
+      - "3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - shared-db-network
+      - {{project_name}}-network
+
+  {{project_name}}-meilisearch:
+    container_name: {{project_name}}-meilisearch
+    image: getmeili/meilisearch:latest
+    restart: unless-stopped
+    environment:
+      - MEILI_ENV=${MEILI_ENV:-development}
+      - MEILI_MASTER_KEY=${MEILISEARCH_KEY}
+      - MEILI_NO_ANALYTICS=true
+    ports:
+      - "7700"
+    volumes:
+      - meilisearchdata:/meili_data
+    networks:
+      - meilisearch-network
+      - {{project_name}}-network
+
+volumes:
+  dbdata:
+  redisdata:
+  meilisearchdata:
+
+networks:
+  nginx-proxy:
+    external: true
+  shared-db-network:
+    external: true
+  {{project_name}}-network:
+    driver: bridge
+  meilisearch-network:
+    driver: bridge
+  mail-catcher-network:
+    external: true

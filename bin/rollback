@@ -1,0 +1,284 @@
+#!/usr/bin/env bash
+
+set -e  # Exit on error
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Configuration
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RELEASES_DIR="$PROJECT_ROOT/releases"
+CURRENT_LINK="$PROJECT_ROOT/current"
+SRC_LINK="$PROJECT_ROOT/src"
+
+# Load .env file to get PROJECT_NAME
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
+fi
+
+CONTAINER_NAME="${PROJECT_NAME}-php"
+
+# Helper functions
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_step() {
+    echo -e "${BLUE}[STEP]${NC} $1"
+}
+
+# Confirmation prompt
+confirm() {
+    read -p "$1 (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_error "Rollback cancelled by user"
+        exit 1
+    fi
+}
+
+# Get list of releases
+get_releases() {
+    cd "$RELEASES_DIR"
+    RELEASES=($(ls -t | grep "^release-"))
+}
+
+# Get current release
+get_current_release() {
+    if [ -L "$CURRENT_LINK" ]; then
+        CURRENT_RELEASE=$(basename "$(readlink -f "$CURRENT_LINK")")
+    else
+        log_error "current symlink not found!"
+        exit 1
+    fi
+}
+
+# Find previous release
+find_previous_release() {
+    get_releases
+    get_current_release
+
+    PREVIOUS_RELEASE=""
+
+    for release in "${RELEASES[@]}"; do
+        if [ "$release" = "$CURRENT_RELEASE" ]; then
+            # Found current release, next one in the list is previous
+            continue
+        elif [ -z "$PREVIOUS_RELEASE" ]; then
+            # This is the first release after current (which is previous)
+            PREVIOUS_RELEASE="$release"
+            break
+        fi
+    done
+
+    if [ -z "$PREVIOUS_RELEASE" ]; then
+        log_error "No previous release found!"
+        log_info "Available releases:"
+        for release in "${RELEASES[@]}"; do
+            if [ "$release" = "$CURRENT_RELEASE" ]; then
+                echo "  $release (current)"
+            else
+                echo "  $release"
+            fi
+        done
+        exit 1
+    fi
+}
+
+# List available releases
+list_releases() {
+    log_step "Available releases:"
+    echo ""
+
+    get_releases
+    get_current_release
+
+    for i in "${!RELEASES[@]}"; do
+        release="${RELEASES[$i]}"
+
+        # Get Git commit info
+        COMMIT_INFO=""
+        if [ -d "$RELEASES_DIR/$release/.git" ]; then
+            COMMIT_INFO=$(cd "$RELEASES_DIR/$release" && git log -1 --oneline 2>/dev/null || echo "unknown")
+        fi
+
+        if [ "$release" = "$CURRENT_RELEASE" ]; then
+            echo -e "  ${GREEN}[$((i+1))] $release (CURRENT)${NC}"
+        else
+            echo "  [$((i+1))] $release"
+        fi
+
+        if [ -n "$COMMIT_INFO" ]; then
+            echo "      Commit: $COMMIT_INFO"
+        fi
+    done
+
+    echo ""
+}
+
+# Rollback to specific release
+rollback_to_release() {
+    local target_release="$1"
+
+    log_step "Rolling back to: $target_release"
+
+    # Verify release exists
+    if [ ! -d "$RELEASES_DIR/$target_release" ]; then
+        log_error "Release $target_release not found!"
+        exit 1
+    fi
+
+    # Show Git commit info
+    if [ -d "$RELEASES_DIR/$target_release/.git" ]; then
+        COMMIT_INFO=$(cd "$RELEASES_DIR/$target_release" && git log -1 --oneline)
+        log_info "Git commit: $COMMIT_INFO"
+    fi
+
+    echo ""
+    confirm "Are you sure you want to rollback to this release?"
+
+    # Create temporary symlink
+    log_info "Switching symlink..."
+    cd "$PROJECT_ROOT"
+    ln -sfn "releases/$target_release" "current.tmp"
+
+    # Atomic move
+    mv -Tf "current.tmp" "current"
+
+    # Update src symlink
+    if [ -L "$SRC_LINK" ]; then
+        ln -sfn current src
+    fi
+
+    # Reload PHP-FPM
+    log_info "Reloading PHP-FPM..."
+    docker exec "$CONTAINER_NAME" bash -c "kill -USR2 1" 2>/dev/null || log_warn "Could not reload PHP-FPM (not critical)"
+
+    # Flush cache
+    log_info "Flushing Magento cache..."
+    docker exec -u www-data "$CONTAINER_NAME" bash -c "cd /var/www/src && bin/magento cache:flush"
+
+    log_info "Rollback completed successfully!"
+}
+
+# Interactive rollback
+interactive_rollback() {
+    list_releases
+
+    echo "Select release to rollback to:"
+    read -p "Enter number (or 'q' to quit): " choice
+
+    if [ "$choice" = "q" ]; then
+        log_info "Rollback cancelled"
+        exit 0
+    fi
+
+    # Validate input
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        log_error "Invalid input!"
+        exit 1
+    fi
+
+    # Get release by index
+    get_releases
+    INDEX=$((choice - 1))
+
+    if [ $INDEX -lt 0 ] || [ $INDEX -ge ${#RELEASES[@]} ]; then
+        log_error "Invalid selection!"
+        exit 1
+    fi
+
+    TARGET_RELEASE="${RELEASES[$INDEX]}"
+
+    # Check if it's the current release
+    get_current_release
+    if [ "$TARGET_RELEASE" = "$CURRENT_RELEASE" ]; then
+        log_error "This is already the current release!"
+        exit 1
+    fi
+
+    rollback_to_release "$TARGET_RELEASE"
+}
+
+# Main function
+main() {
+    echo "=========================================="
+    log_info "Rollback to previous release"
+    echo "=========================================="
+    echo ""
+
+    # Check if releases directory exists
+    if [ ! -d "$RELEASES_DIR" ]; then
+        log_error "releases/ directory not found!"
+        log_error "Have you run the migration script?"
+        exit 1
+    fi
+
+    # Check if current symlink exists
+    if [ ! -L "$CURRENT_LINK" ]; then
+        log_error "current symlink not found!"
+        exit 1
+    fi
+
+    # Parse arguments
+    if [ $# -eq 0 ]; then
+        # No arguments, use previous release
+        find_previous_release
+
+        log_info "Current release: $CURRENT_RELEASE"
+        log_info "Previous release: $PREVIOUS_RELEASE"
+        echo ""
+
+        # Show Git commit info
+        if [ -d "$RELEASES_DIR/$PREVIOUS_RELEASE/.git" ]; then
+            COMMIT_INFO=$(cd "$RELEASES_DIR/$PREVIOUS_RELEASE" && git log -1 --oneline)
+            log_info "Git commit: $COMMIT_INFO"
+            echo ""
+        fi
+
+        confirm "Rollback to previous release?"
+
+        rollback_to_release "$PREVIOUS_RELEASE"
+
+    elif [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
+        # List releases
+        list_releases
+
+    elif [ "$1" = "--interactive" ] || [ "$1" = "-i" ]; then
+        # Interactive selection
+        interactive_rollback
+
+    elif [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+        # Show help
+        echo "Usage: bin/rollback [OPTIONS]"
+        echo ""
+        echo "Options:"
+        echo "  (no args)           Rollback to previous release"
+        echo "  -l, --list          List all available releases"
+        echo "  -i, --interactive   Interactive release selection"
+        echo "  -h, --help          Show this help message"
+        echo ""
+
+    else
+        # Assume argument is release name
+        rollback_to_release "$1"
+    fi
+
+    echo ""
+    log_info "Current release: $(basename "$(readlink -f "$CURRENT_LINK")")"
+}
+
+# Run main function
+main "$@"

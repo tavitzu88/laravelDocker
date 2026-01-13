@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+EDITION=${1:-community}
+
+# Define ANSI escape codes for colors
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+bin/setup-composer-auth
+
+bin/fixowns
+
+if [ "$EDITION" == "mageos" ]; then
+  VERSION=${2:-2.0.0}
+  bin/clinotty composer create-project --repository-url=https://repo.mage-os.org/ mage-os/project-community-edition="${VERSION}" .
+else
+  VERSION=${2:-2.4.7-p3}
+  bin/clinotty composer create-project --repository=https://repo.magento.com/ magento/project-"${EDITION}"-edition="${VERSION}" .
+fi

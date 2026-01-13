@@ -1,0 +1,27 @@
+#!/bin/bash
+set -o errexit
+ENV_FILE=".env"
+if [ -f "$ENV_FILE" ]; then
+    DOMAIN_HOST=$(grep -E '^DOMAIN_HOSTS=' "$ENV_FILE" | cut -d '=' -f2)
+else
+    echo "Fișierul .env nu a fost găsit!"
+    exit 1
+fi
+
+if [ -z "$DOMAIN_HOST" ]; then
+    echo "Variabila DOMAIN_HOST nu a fost găsită în fișierul .env sau este goală!"
+    exit 1
+fi
+echo "DOMAIN_HOST a fost găsit cu succes: $DOMAIN_HOST"
+
+if ! grep -q "$DOMAIN_HOST" /etc/hosts; then
+    echo "Your system password is needed to add an entry to /etc/hosts..."
+    echo "127.0.0.1 ::1 $DOMAIN_HOST" | sudo tee -a /etc/hosts
+fi
+
+
+echo "Set https://${DOMAIN_HOST}/ to web/secure/base_url and web/unsecure/base_url"
+#bin/clinotty bin/magento config:set web/secure/base_url https://"$DOMAIN_HOST"/
+bin/clinotty bin/magento setup:store-config:set --base-url="https://$DOMAIN_HOST/"
+#bin/clinotty bin/magento config:set web/unsecure/base_url https://"$DOMAIN_HOST"/
+bin/clinotty bin/magento setup:store-config:set --base-url-secure="https://$DOMAIN_HOST/"

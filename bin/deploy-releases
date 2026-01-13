@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+
+set -e  # Exit on error
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Configuration
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RELEASES_DIR="$PROJECT_ROOT/releases"
+SHARED_DIR="$PROJECT_ROOT/shared"
+CURRENT_LINK="$PROJECT_ROOT/current"
+SRC_LINK="$PROJECT_ROOT/src"
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+NEW_RELEASE="$RELEASES_DIR/release-$TIMESTAMP"
+KEEP_RELEASES=3
+
+# Load .env file to get PROJECT_NAME
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
+fi
+
+CONTAINER_NAME="${PROJECT_NAME}-php"
+
+# Helper functions
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if container is running
+check_container() {
+    if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        log_error "Container $CONTAINER_NAME is not running!"
+        exit 1
+    fi
+}
+
+# Run command in PHP-FPM container with NEW_RELEASE mounted
+run_in_container() {
+    local cmd="$1"
+    log_info "Running in container $CONTAINER_NAME: $cmd"
+
+    # Get release name (relative path)
+    RELEASE_NAME=$(basename "$NEW_RELEASE")
+
+    # Run in NEW release (NOT in src!)
+    docker exec -u www-data "$CONTAINER_NAME" bash -c "cd /var/www/releases/$RELEASE_NAME && $cmd"
+}
+
+# Create directory structure
+setup_directories() {
+    log_info "Setting up directory structure..."
+
+    mkdir -p "$RELEASES_DIR"
+    mkdir -p "$SHARED_DIR/var"
+    mkdir -p "$SHARED_DIR/pub/media"
+    mkdir -p "$SHARED_DIR/app/etc"
+
+    # Copy env.php to shared if it doesn't exist
+    if [ ! -f "$SHARED_DIR/app/etc/env.php" ] && [ -f "$CURRENT_LINK/app/etc/env.php" ]; then
+        log_info "Copying env.php to shared directory..."
+        cp "$CURRENT_LINK/app/etc/env.php" "$SHARED_DIR/app/etc/env.php"
+    fi
+}
+
+# Clone or pull code
+deploy_code() {
+    log_info "Deploying code to $NEW_RELEASE..."
+
+    # Check if current release exists and has .git
+    if [ -L "$CURRENT_LINK" ] && [ -d "$(readlink -f "$CURRENT_LINK")/.git" ]; then
+        CURRENT_RELEASE=$(readlink -f "$CURRENT_LINK")
+
+        # First, fetch latest changes in CURRENT release
+        log_info "Fetching latest changes in current release..."
+        cd "$CURRENT_RELEASE"
+        REMOTE_URL=$(git config --get remote.origin.url)
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        git fetch origin
+
+        log_info "Cloning from current release: $CURRENT_RELEASE"
+        # Clone from current release (faster than remote clone)
+        git clone "$CURRENT_RELEASE" "$NEW_RELEASE"
+
+        cd "$NEW_RELEASE"
+
+        # Fix the origin remote to point to the actual remote repository
+        log_info "Resetting origin to: $REMOTE_URL"
+        git remote set-url origin "$REMOTE_URL"
+
+        # Fetch and pull latest changes from the REAL remote
+        log_info "Fetching latest changes from remote repository..."
+        git fetch origin
+
+        log_info "Current branch: $CURRENT_BRANCH"
+
+        # Pull latest changes
+        log_info "Pulling latest changes from origin/$CURRENT_BRANCH..."
+        git pull origin "$CURRENT_BRANCH"
+
+        if [ -f "$CURRENT_RELEASE/auth.json" ]; then
+            log_info "Copying auth.json from current release..."
+            cp "$CURRENT_RELEASE/auth.json" "$NEW_RELEASE/auth.json"
+        fi
+
+    else
+        log_error "No current release found or .git directory missing!"
+        log_error "Please run migration script first or manually clone repository to releases/"
+        exit 1
+    fi
+}
+
+# Create symlinks to shared directories
+link_shared() {
+    log_info "Linking shared directories..."
+
+    cd "$NEW_RELEASE"
+
+    # Remove existing directories
+    [ -d "var" ] && rm -rf var
+    [ -d "pub/media" ] && rm -rf pub/media
+    [ -f "app/etc/env.php" ] && rm -f app/etc/env.php
+
+    # Create symlinks (relative paths)
+    ln -sfn ../../shared/var var
+    ln -sfn ../../../shared/pub/media pub/media
+    ln -sfn ../../../../shared/app/etc/env.php app/etc/env.php
+
+    log_info "Symlinks created successfully"
+}
+
+# Switch current symlink atomically
+switch_release() {
+    log_info "Switching to new release..."
+
+    cd "$PROJECT_ROOT"
+
+    # Get release name (relative path)
+    RELEASE_NAME=$(basename "$NEW_RELEASE")
+
+    # Create temporary symlink with RELATIVE path
+    ln -sfn "releases/$RELEASE_NAME" "current.tmp"
+
+    # Atomic move (this is the zero-downtime magic!)
+    mv -Tf "current.tmp" "current"
+
+    # Update src symlink if it exists (also relative)
+    if [ -L "$SRC_LINK" ]; then
+        ln -sfn current src
+    fi
+
+    log_info "Release switched successfully!"
+}
+
+# Run Magento deployment commands
+deploy_magento() {
+    log_info "Running Magento deployment commands..."
+
+    # Composer install
+    log_info "Installing Composer dependencies..."
+    run_in_container "composer install --no-dev --optimize-autoloader"
+
+    # DI compile
+    log_info "Running setup:di:compile..."
+    run_in_container "bin/magento setup:di:compile"
+
+    # Setup upgrade
+    log_info "Running setup:upgrade..."
+    run_in_container "bin/magento setup:upgrade"
+
+    # Deploy static content
+    log_info "Deploying static content..."
+    run_in_container "bin/magento setup:static-content:deploy en_US -f"
+
+    # Flush cache again
+    log_info "Flushing cache..."
+    run_in_container "bin/magento cache:flush"
+}
+
+# Cleanup old releases
+cleanup_releases() {
+    log_info "Cleaning up old releases (keeping last $KEEP_RELEASES)..."
+
+    cd "$RELEASES_DIR"
+
+    # Get list of releases sorted by modification time (oldest first)
+    RELEASES=($(ls -t | grep "^release-"))
+
+    # Count releases
+    RELEASE_COUNT=${#RELEASES[@]}
+
+    if [ $RELEASE_COUNT -gt $KEEP_RELEASES ]; then
+        # Calculate how many to delete
+        DELETE_COUNT=$((RELEASE_COUNT - KEEP_RELEASES))
+
+        log_info "Found $RELEASE_COUNT releases, deleting $DELETE_COUNT old releases..."
+
+        # Delete old releases (from the end of the array, which are the oldest)
+        for ((i=$KEEP_RELEASES; i<$RELEASE_COUNT; i++)); do
+            RELEASE_TO_DELETE="${RELEASES[$i]}"
+            log_warn "Deleting old release: $RELEASE_TO_DELETE"
+            rm -rf "$RELEASE_TO_DELETE"
+        done
+    else
+        log_info "Only $RELEASE_COUNT releases found, nothing to clean up"
+    fi
+}
+
+# Reload PHP-FPM gracefully
+reload_phpfpm() {
+    log_info "Reloading PHP-FPM gracefully..."
+    docker exec "$CONTAINER_NAME" bash -c "kill -USR2 1" 2>/dev/null || log_warn "Could not reload PHP-FPM (not critical)"
+}
+
+# Main deployment flow
+main() {
+    log_info "=== Starting deployment ==="
+    log_info "Project: $PROJECT_NAME"
+    log_info "Timestamp: $TIMESTAMP"
+    log_info "New release: $NEW_RELEASE"
+    echo ""
+
+    # Check prerequisites
+    check_container
+
+    # Setup directories
+    setup_directories
+
+    # Deploy code
+    deploy_code
+
+    # Link shared directories
+    link_shared
+
+    # Run Magento deployment (BEFORE switching symlink!)
+    deploy_magento
+
+    # Switch to new release (atomic, zero-downtime!)
+    switch_release
+
+    # Reload PHP-FPM
+    reload_phpfpm
+
+    # Cleanup old releases
+    cleanup_releases
+
+    echo ""
+    log_info "=== Deployment completed successfully! ==="
+    log_info "Current release: $(readlink -f "$CURRENT_LINK")"
+    log_info "Git commit: $(cd "$NEW_RELEASE" && git log -1 --oneline)"
+}
+
+# Run main function
+main

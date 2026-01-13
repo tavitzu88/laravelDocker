@@ -1,0 +1,8 @@
+SHELL=/bin/bash
+
+# Laravel Scheduler
+# Runs every minute to check for scheduled tasks
+* * * * * cd /var/www/src && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
+
+# Log rotation (runs daily at midnight)
+0 0 * * * /usr/sbin/logrotate /etc/logrotate.d/laravel --state /tmp/logrotate-laravel.state

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+if docker compose version > /dev/null 2>&1; then
+  DOCKER_COMPOSE="docker compose"
+else
+  DOCKER_COMPOSE="docker-compose"
+fi
+
+COMPOSE_FILES=("compose.yaml")
+
+# Loop over the list of compose files, and prefix them with -f.
+# This ensures paths with spaces aren't split when passed as parameters.
+COMPOSE_FILES_PREFIXED=()
+for file in "${COMPOSE_FILES[@]}"; do
+  COMPOSE_FILES_PREFIXED+=("-f" "$file")
+done
+
+${DOCKER_COMPOSE} "${COMPOSE_FILES_PREFIXED[@]}" "$@"

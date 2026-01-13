@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -o errexit
+mkdir -p tmpupdate && cd "$_"
+echo "Creating temp directory for update..."
+git init -qqq
+git remote add origin https://github.com/adrianalin89/m2docker.git
+echo "Cloning repository..."
+git fetch origin -qqq
+git checkout master
+
+rm -rf .git
+
+rsync -av --checksum ./ ../
+echo "Syncing files..."
+cd ..
+rm -rf tmpupdate
+echo "Removing temp directory..."
+echo "Project has been updated, run bin/restart to apply the updates"
