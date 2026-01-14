@@ -143,6 +143,8 @@ project-root/
    ```bash
    mkdir src
    ```
+   ## !!! If the owner of src folder is root change it to your current user. !!!   
+
 
 ### Part 3A: Setup New Laravel Project
 
