@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 [ -z "$1" ] && echo "Please specify a CLI command (ex. ls)" && exit
 # -T: Disable pseudo-tty allocation
-bin/docker-compose exec -T {{project_name}}-php "$@"
+bin/docker-compose exec -u www-data -T {{project_name}}-php "$@"
