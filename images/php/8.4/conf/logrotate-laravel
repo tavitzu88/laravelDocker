@@ -8,7 +8,7 @@
     create 0644 www-data www-data
     sharedscripts
     postrotate
-        # Send signal to Magento to reload logs (if necessary)
+        # Send signal to Laravel to reload logs (if necessary)
 
     endscript
 }
