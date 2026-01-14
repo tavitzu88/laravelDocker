@@ -311,10 +311,10 @@ project-root/
 Queue workers start automatically via supervisor. No additional setup needed!
 ```bash
 # Check worker status
-bin/cli supervisorctl status
+bin/root supervisorctl status
 
 # View worker logs
-bin/cli supervisorctl tail -f laravel-worker
+bin/root supervisorctl tail -f laravel-worker
 ```
 
 #### Task Scheduler (Already Running!)
@@ -551,10 +551,10 @@ Laravel will handle file permissions automatically when containers run with corr
 ### Queue Jobs Not Processing
 ```bash
 # Check supervisor status
-bin/cli supervisorctl status
+bin/root supervisorctl status
 
 # View worker logs
-bin/cli supervisorctl tail -f laravel-worker
+bin/root supervisorctl tail -f laravel-worker
 
 # Restart workers
 bin/restart
@@ -581,9 +581,9 @@ Supervisor runs as root user but child processes (PHP-FPM, cron, laravel-worker)
 
 ```bash
 # Correct supervisorctl usage (no -c flag needed)
-bin/cli supervisorctl status
-bin/cli supervisorctl tail -f laravel-worker
-bin/cli supervisorctl restart laravel-worker
+bin/root supervisorctl status
+bin/root supervisorctl tail -f laravel-worker
+bin/root supervisorctl restart laravel-worker
 ```
 
 **If supervisor fails to start**, check:
@@ -631,7 +631,7 @@ bin/docker-compose logs {{project_name}}-nginx
 bin/docker-compose logs {{project_name}}-php
 
 # Supervisor logs
-bin/cli supervisorctl tail -f laravel-worker
+bin/root supervisorctl tail -f laravel-worker
 ```
 
 ## Redis Configuration
@@ -818,7 +818,7 @@ Create a `bin/deploy` script for Laravel deployments that includes:
 - Install/update Composer dependencies (`--no-dev --optimize-autoloader`)
 - Run database migrations (`bin/migrate --force`)
 - Clear and optimize caches (`bin/optimize-clear` && `bin/optimize`)
-- Restart queue workers (`bin/cli supervisorctl restart laravel-worker`)
+- Restart queue workers (`bin/root supervisorctl restart laravel-worker`)
 - Build frontend assets (`bin/vite-build`)
 - Bring application back online (`bin/artisan up`)
 
