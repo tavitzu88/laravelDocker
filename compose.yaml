@@ -42,7 +42,6 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - mail-catcher-network
-      - meilisearch-network
       - {{project_name}}-network
 
   {{project_name}}-redis:
@@ -94,7 +93,6 @@ services:
     volumes:
       - meilisearchdata:/meili_data
     networks:
-      - meilisearch-network
       - {{project_name}}-network
 
 volumes:
@@ -108,8 +106,6 @@ networks:
   shared-db-network:
     external: true
   {{project_name}}-network:
-    driver: bridge
-  meilisearch-network:
     driver: bridge
   mail-catcher-network:
     external: true
