@@ -12,4 +12,3 @@ if [ "$1" == "--no-dev" ]; then
 fi
 
 bin/docker-compose up -d --remove-orphans "$@"
-bin/cache-clean --watch
