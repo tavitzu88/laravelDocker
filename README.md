@@ -2,10 +2,9 @@
 
 <img src="https://img.shields.io/badge/laravel-10%20%7C%2011%20%7C%2012-FF2D20.svg?logo=laravel&longCache=true" alt="Supported Laravel Versions" />
 <img src="https://img.shields.io/badge/php-8.1%20%7C%208.2%20%7C%208.3%20%7C%208.4-777BB4.svg?logo=php&longCache=true" alt="Supported PHP Versions" />
-[![Test](https://github.com/nginx-proxy/nginx-proxy/actions/workflows/test.yml/badge.svg)](https://github.com/nginx-proxy/nginx-proxy/actions/workflows/test.yml)
 <img src="https://img.shields.io/badge/maintained%3F-yes-brightgreen.svg" alt="Maintained - Yes" />
 
-A complete Docker development environment for Laravel applications (10, 11, and 12) using [NGINX Proxy](https://github.com/nginx-proxy/nginx-proxy) for multi-project setups. This setup provides a production-ready development environment with all the tools you need for modern Laravel development.
+A complete Docker development environment for Laravel applications (10, 11, and 12) using [NGINX Proxy](https://github.com/adrianalin89/nginx-proxy) for multi-project setups. This setup provides a production-ready development environment with all the tools you need for modern Laravel development.
 
 ## Features
 
@@ -21,7 +20,7 @@ A complete Docker development environment for Laravel applications (10, 11, and 
 - 🌐 **Multi-Project Support**: Run multiple Laravel projects on the same server
 - 🔐 **SSL Certificates**: Automatic SSL certificate generation (Let's Encrypt or self-signed)
 - 📧 **Global MailCatcher**: Test emails from all projects in one place
-- 💾 **Global phpMyAdmin**: Access all project databases from http://localhost:8080
+- 💾 **Global phpMyAdmin**: Access all project databases from http://db.test
 - 🐳 **Docker Compose V2**: Modern Docker setup with external networks
 
 ## Container Services
@@ -37,8 +36,8 @@ The project consists of:
 
 - [Docker & Docker Compose](https://docs.docker.com/engine/install/ubuntu/) - Container runtime
 - [NGINX Proxy](https://github.com/adrianalin89/nginx-proxy) - Must be setup and running with global services:
-  - MailCatcher (http://localhost:1080) - Email testing
-  - phpMyAdmin (http://localhost:8080) - Database management
+  - MailCatcher (http://mail.test) - Email testing
+  - phpMyAdmin (http://db.test) - Database management
   - Portainer (optional) - Container management
 
 ## Quick Start
@@ -103,8 +102,8 @@ project-root/
    ```
 
 3. **Verify Global Services**
-   - MailCatcher: http://localhost:1080
-   - phpMyAdmin: http://localhost:8080
+   - MailCatcher: http://mail.test
+   - phpMyAdmin: http://db.test
    - Portainer: (if configured)
 
 ### Part 2: Project Configuration
@@ -224,13 +223,7 @@ project-root/
    bin/seed
    ```
 
-7. **Fix Permissions**
-   ```bash
-   bin/fixowns
-   bin/fixperms
-   ```
-
-8. **Add Domain to Hosts File**
+7. **Add Domain to Hosts File**
    ```bash
    # Linux/Mac
    sudo nano /etc/hosts
@@ -241,16 +234,16 @@ project-root/
    # Add: 127.0.0.1 {{project_name}}.test
    ```
 
-9. **Restart NGINX Proxy** (to generate SSL certificates)
+8. **Restart NGINX Proxy** (to generate SSL certificates)
    ```bash
    cd /path/to/nginx-proxy
    bin/restart
    ```
 
-10. **Access Your Application**
+9. **Access Your Application**
     - Open: https://{{project_name}}.test
-    - MailCatcher: http://localhost:1080
-    - phpMyAdmin: http://localhost:8080 (server: {{project_name}}-db)
+    - MailCatcher: http://mail.test
+    - phpMyAdmin: http://db.test (server: {{project_name}}-db)
 
 ### Part 3B: Setup Existing Laravel Project
 
@@ -306,17 +299,11 @@ project-root/
    bin/vite        # Development server with HMR
    ```
 
-8. **Fix Permissions**
-   ```bash
-   bin/fixowns
-   bin/fixperms
-   ```
+8. **Add Domain to Hosts File** (see Part 3A step 7)
 
-9. **Add Domain to Hosts File** (see Part 3A step 8)
+9. **Restart NGINX Proxy** (see Part 3A step 8)
 
-10. **Restart NGINX Proxy** (see Part 3A step 9)
-
-11. **Access Your Application** (see Part 3A step 10)
+10. **Access Your Application** (see Part 3A step 9)
 
 ### Part 4: Post-Setup - Laravel Features
 
@@ -430,8 +417,6 @@ To change PHP version:
 ### Code Quality
 - **`bin/pint`**: Format code with Laravel Pint
 - **`bin/phpstan`**: Run PHPStan static analysis
-- **`bin/phpcs`**: Run PHP_CodeSniffer
-- **`bin/phpcbf`**: Auto-fix PHP_CodeSniffer errors
 
 ### Caching Commands
 - **`bin/cache-clear`**: Clear all Laravel caches
@@ -448,9 +433,6 @@ To change PHP version:
 ### Development Tools
 - **`bin/composer <command>`**: Run Composer. Ex: `bin/composer install`
 - **`bin/xdebug <action>`**: Enable/disable Xdebug. Ex: `bin/xdebug enable`
-- **`bin/fixowns`**: Fix file ownership (www-data user)
-- **`bin/fixperms`**: Fix file permissions
-- **`bin/log`**: Tail Laravel logs (storage/logs/)
 
 ### Docker Management
 - **`bin/docker-compose <command>`**: Run docker compose commands
@@ -464,14 +446,14 @@ To change PHP version:
 ## Global Tools Access
 
 ### phpMyAdmin
-- **Access**: http://localhost:8080
+- **Access**: http://db.test
 - **Server Name**: `{PROJECT_NAME}-db` (e.g., `{{project_name}}-db`)
 - **Username**: Use `MYSQL_USER` from your `.env`
 - **Password**: Use `MYSQL_PASSWORD` from your `.env`
 - **Features**: Manage all project databases from one place
 
 ### MailCatcher
-- **Web UI**: http://localhost:1080
+- **Web UI**: http://mail.test
 - **SMTP Host**: `mailcatcher` (from containers)
 - **SMTP Port**: `1025`
 - **Features**: View emails from all Laravel projects in one interface
@@ -546,11 +528,8 @@ To add HTTP basic authentication:
 - Ensure `.env` is configured correctly
 
 ### Permission Denied Errors
-```bash
-bin/fixowns    # Fix ownership
-bin/fixperms   # Fix permissions
-```
-Verify `USER_ID` and `GROUP_ID` in `.env` match your system (`id -u` and `id -g`)
+Verify `USER_ID` and `GROUP_ID` in `.env` match your system (`id -u` and `id -g`).
+Laravel will handle file permissions automatically when containers run with correct user/group IDs.
 
 ### Database Connection Failed
 - Verify MySQL container is running: `bin/status`
@@ -560,7 +539,7 @@ Verify `USER_ID` and `GROUP_ID` in `.env` match your system (`id -u` and `id -g`
 
 ### Can't Access phpMyAdmin
 - Verify NGINX Proxy is running
-- Check http://localhost:8080
+- Check http://db.test
 - Server name must be: `{PROJECT_NAME}-db`
 - Use MySQL credentials from Docker `.env`
 
@@ -641,8 +620,8 @@ bin/cli cat /usr/local/etc/php/conf.d/php.ini | grep xdebug
 
 ### Viewing Logs
 ```bash
-# Laravel logs
-bin/log
+# Laravel logs (direct file access)
+bin/cli tail -f storage/logs/laravel.log
 
 # All container logs
 bin/docker-compose logs
@@ -830,13 +809,28 @@ If running in WSL2, follow the above steps with these additions:
 
 4. **Use Laravel Horizon** for better queue management
 
+## TODO / Planned Features
+
+### Deployment Script
+Create a `bin/deploy` script for Laravel deployments that includes:
+- Put application in maintenance mode (`bin/artisan down`)
+- Pull latest code from git
+- Install/update Composer dependencies (`--no-dev --optimize-autoloader`)
+- Run database migrations (`bin/migrate --force`)
+- Clear and optimize caches (`bin/optimize-clear` && `bin/optimize`)
+- Restart queue workers (`bin/cli supervisorctl restart laravel-worker`)
+- Build frontend assets (`bin/vite-build`)
+- Bring application back online (`bin/artisan up`)
+
+This will provide zero-downtime deployment workflow similar to the Magento setup that was removed during cleanup.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request or open an issue.
 
 ## License
 
-This project follows the same principles as the original docker-magento setup but is specifically adapted for Laravel development.
+This project is a Docker-based development environment specifically designed for modern Laravel applications.
 
 ## Support
 
