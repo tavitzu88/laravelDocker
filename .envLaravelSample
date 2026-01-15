@@ -1,8 +1,8 @@
-APP_NAME=mylaravel
+APP_NAME={{project_name}}
 APP_ENV=local
 APP_KEY=base64:RWfzQO6dnSCxF+uGWAQyHmUEzj+GSsv7nguNCwBA0L8=
 APP_DEBUG=true
-APP_URL=https://mylaravel
+APP_URL=https://{{project_name}}
 APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
 APP_FAKER_LOCALE=en_US
@@ -20,9 +20,9 @@ LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=debug
 
 DB_CONNECTION=mysql
-DB_HOST=mylaravel-db
+DB_HOST={{project_name}}-db
 DB_PORT=3306
-DB_DATABASE=mylaravel
+DB_DATABASE={{project_name}}
 DB_USERNAME=laravel
 DB_PASSWORD=laravel
 
@@ -42,7 +42,7 @@ CACHE_STORE=database
 MEMCACHED_HOST=127.0.0.1
 
 REDIS_CLIENT=phpredis
-REDIS_HOST=mylaravel-redis
+REDIS_HOST={{project_name}}-redis
 REDIS_PASSWORD=null
 REDIS_PORT=6379
 
@@ -52,11 +52,11 @@ MAIL_PORT=1025
 MAIL_USERNAME=null
 MAIL_PASSWORD=null
 MAIL_ENCRYPTION=null
-MAIL_FROM_ADDRESS="hello@mylaravel.test"
+MAIL_FROM_ADDRESS="hello@{{project_name}}.test"
 MAIL_FROM_NAME="${APP_NAME}"
 
 SCOUT_DRIVER=meilisearch
-MEILISEARCH_HOST=http://mylaravel-meilisearch:7700
+MEILISEARCH_HOST=http://{{project_name}}-meilisearch:7700
 MEILISEARCH_KEY=masterKey
 
 AWS_ACCESS_KEY_ID=
