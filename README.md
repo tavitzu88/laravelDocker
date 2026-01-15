@@ -171,8 +171,9 @@ project-root/
    cd src
    replace .env with .envLaravelSample
    nano .env
-   replace mylaravel with your project name
    ```
+
+   Make sure all the credentials are properly set as required.
 
    **Database Configuration:**
    ```env
@@ -271,9 +272,9 @@ project-root/
    cd src   
    replace .env with .envLaravelSample
    nano .env
-   replace mylaravel with your project name
    # Configure database, Redis, mail (same as Part 3A step 3)
    ```
+   Make sure all credentials are set as required.
 
 5. **Generate Application Key**
    ```bash
