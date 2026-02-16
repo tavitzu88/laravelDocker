@@ -232,7 +232,7 @@ project-root/
    sudo nano /etc/hosts
    # Add: 127.0.0.1 {{project_name}}.test
 
-   # Windows
+   # Windows (!!!!! IF WE USE WSL WE SHOULD UPDATE THE HOSTS FILE IN WINDOWS !!!!!)
    # Edit: C:\Windows\System32\drivers\etc\hosts
    # Add: 127.0.0.1 {{project_name}}.test
    ```
